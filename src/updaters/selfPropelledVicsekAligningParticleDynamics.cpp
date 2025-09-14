@@ -139,7 +139,7 @@ The straightforward GPU implementation
 */
 void selfPropelledVicsekAligningParticleDynamics::integrateEquationsOfMotionGPU()
     {
-    printf("code note updated... sorry!\n");
+    printf("code not updated... sorry!\n");
     throw std::exception();
     activeModel->computeForces();
     {//scope for array Handles
@@ -165,7 +165,8 @@ void selfPropelledVicsekAligningParticleDynamics::integrateEquationsOfMotionGPU(
                  deltaT,
                  Timestep,
                  mu,
-                 Eta);
+                 Eta,
+                 tau);
     };//end array handle scope
     activeModel->moveDegreesOfFreedom(displacements);
     activeModel->enforceTopology();

@@ -1,6 +1,7 @@
 #include "simpleVoronoiDatabase.h"
 #include "baseHDF5Database.h"
 #include "debuggingHelp.h"
+#include "dynamicalFeatures.h"
 
 simpleVoronoiDatabase::simpleVoronoiDatabase(int np, string fn,fileMode::Enum _mode) 
     : baseHDF5Database(fn,_mode)
@@ -35,6 +36,11 @@ void simpleVoronoiDatabase::registerDatasets()
     registerExtendableDataset<double>("position", 2*N);
     registerExtendableDataset<double>("velocity", 2*N);
     // registerExtendableDataset<double>("additionalData", 2*N);
+
+    // Additional datasets for new features
+    registerExtendableDataset<double>("vicsekOrderParam", 1);
+    registerExtendableDataset<double>("meanShapeIndex", 1);
+    registerExtendableDataset<double>("MSD", 1);
     }
 
 void simpleVoronoiDatabase::writeState(STATE c, double time, int rec)
@@ -85,6 +91,24 @@ void simpleVoronoiDatabase::writeState(STATE c, double time, int rec)
         }
     extendDataset("velocity",coordinateVector); 
 
+
+    // Vicsek order parameter (assuming s can be treated as Simple2DActiveCell for this computation)
+    double2 vParallel = make_double2(0.0, 0.0);
+    double2 vPerpendicular = make_double2(0.0, 0.0);
+    double vicsek = s->vicsekOrderParameter(vParallel, vPerpendicular);
+    timeVector[0] = vicsek;
+    extendDataset("vicsekOrderParam", timeVector);
+
+    // Mean shape index (reportq)
+    double shapeIndex = s->reportq();
+    timeVector[0] = shapeIndex;
+    extendDataset("meanShapeIndex", timeVector);
+
+    // MSD using dynamicalFeatures
+    dynamicalFeatures dyn(s->returnPositions(), s->Box);  // fractionAnalyzed = 1.0 for all particles
+    double msd = dyn.computeMSD(s->returnPositions());
+    timeVector[0] = msd;
+    extendDataset("MSD", timeVector);
     }
 
 void simpleVoronoiDatabase::readState(STATE c, int rec, bool geometry)

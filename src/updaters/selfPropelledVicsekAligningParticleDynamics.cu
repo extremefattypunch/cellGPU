@@ -12,22 +12,45 @@
 */
 
 /*!
-Each thread calculates the displacement of an individual cell
+Each thread calculates the velocity and displacement of an individual cell
 */
-__global__ void spp_vicsek_aligning_eom_integration_kernel(double2 *forces,
+__global__ void spp_vicsek_aligning_compute_vel_disp_kernel(
+                                           double2 *forces,
                                            double2 *velocities,
                                            double2 *displacements,
                                            double2 *motility,
+                                           double *cellDirectors,
+                                           int N,
+                                           double deltaT,
+                                           double mu)
+    {
+    unsigned int idx = blockIdx.x*blockDim.x + threadIdx.x;
+    if (idx >=N)
+        return;
+
+    double currentTheta = cellDirectors[idx];
+    double v0 = motility[idx].x;
+    velocities[idx].x = v0*cos(currentTheta) + mu*forces[idx].x;
+    velocities[idx].y = v0*sin(currentTheta) + mu*forces[idx].y;
+    displacements[idx].x = deltaT * velocities[idx].x;
+    displacements[idx].y = deltaT * velocities[idx].y;
+    velocities[idx] = displacements[idx];
+    };
+
+/*!
+Each thread updates the director of an individual cell
+*/
+__global__ void spp_vicsek_aligning_update_directors_kernel(
+                                           double2 *velocities,
                                            double *cellDirectors,
                                            int *nNeighbors,
                                            int *neighbors,
                                            Index2D  n_idx,
                                            curandState *RNGs,
                                            int N,
-                                           double deltaT,
-                                           int Timestep,
-                                           double mu,
-                                           double Eta)
+                                           double Eta,
+                                           double tau,
+                                           double deltaT)
     {
     unsigned int idx = blockIdx.x*blockDim.x + threadIdx.x;
     if (idx >=N)
@@ -36,31 +59,25 @@ __global__ void spp_vicsek_aligning_eom_integration_kernel(double2 *forces,
     //get an appropriate random angle displacement
     curandState_t randState;
     randState=RNGs[idx];
-    double v0 = motility[idx].x;
-    //double Dr = motility[idx].y;
-    double randomAngle = 2.0*PI*curand_uniform(&randState);
+    double randomAngle = 2.0*PI*curand_uniform(&randState) - PI;
     RNGs[idx] = randState;
 
-    double currentTheta = cellDirectors[idx];
-    //update displacements
-    velocities[idx].x = v0*Cos(currentTheta) + mu*forces[idx].x;
-    velocities[idx].y = v0*Sin(currentTheta) + mu*forces[idx].y;
-    displacements[idx] = deltaT*velocities[idx];
-
+    double theta = atan2(velocities[idx].y, velocities[idx].x);
     double2 direction; direction.x = 0.0; direction.y=0.0;
     int neigh = nNeighbors[idx];
     for (int nn =0; nn < neigh; ++nn)
         {
-        double curTheta = cellDirectors[neighbors[n_idx(nn,idx)]];
-        direction.x += Cos(curTheta);
-        direction.y += Sin(curTheta);
+        int neighbor = neighbors[n_idx(nn,idx)];
+        double curTheta = atan2(velocities[neighbor].y, velocities[neighbor].x);
+        direction.x += cos(curTheta);
+        direction.y += sin(curTheta);
         }
-    direction.x += neigh*Eta*Cos(randomAngle);
-    direction.y += neigh*Eta*Sin(randomAngle);
+    direction.x += neigh*Eta*cos(randomAngle);
+    direction.y += neigh*Eta*sin(randomAngle);
     double phi = atan2(direction.y,direction.x);
     
     //update director
-    cellDirectors[idx] = phi;
+    cellDirectors[idx] = theta - (deltaT / tau) * sin(theta - phi);
 
     return;
     };
@@ -80,18 +97,23 @@ bool gpu_spp_vicsek_aligning_eom_integration(
                     double deltaT,
                     int Timestep,
                     double mu,
-                    double Eta)
+                    double Eta,
+                    double tau)
     {
     unsigned int block_size = 128;
     if (N < 128) block_size = 32;
     unsigned int nblocks  = N/block_size + 1;
 
-
-    spp_vicsek_aligning_eom_integration_kernel<<<nblocks,block_size>>>(
+    spp_vicsek_aligning_compute_vel_disp_kernel<<<nblocks,block_size>>>(
                                 forces,velocities,displacements,motility,cellDirectors,
+                                N,deltaT,mu);
+    HANDLE_ERROR(cudaGetLastError());
+
+    spp_vicsek_aligning_update_directors_kernel<<<nblocks,block_size>>>(
+                                velocities,cellDirectors,
                                 nNeighbors,neighbors,n_idx,
                                 RNGs,
-                                N,deltaT,Timestep,mu, Eta);
+                                N,Eta,tau,deltaT);
     HANDLE_ERROR(cudaGetLastError());
     return cudaSuccess;
     };

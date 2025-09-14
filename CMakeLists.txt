@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.5)
 
 project(cellGPU LANGUAGES CXX)
 
@@ -23,6 +23,7 @@ find_package(OpenMP REQUIRED)
 find_package(HDF5 REQUIRED)
 find_package(CGAL REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(OpenCV REQUIRED)
 
 
 
@@ -57,6 +58,7 @@ endif(${CMAKE_BUILD_TYPE} MATCHES "Debug")
 
 include_directories(
             ${EIGEN3_INCLUDE_DIR}
+            ${OpenCV_INCLUDE_DIRS}
             inc
             src/utility src/updaters src/simulation
             src/models src/analysis src/databases
@@ -67,8 +69,8 @@ add_subdirectory(src)
 set(myLibs
     model
     updaters
-    analysis
     databases
+    analysis
     simulation
     utility
     )
@@ -88,11 +90,19 @@ set(HEADERS
 foreach(ARG
         voronoi
         Vertex
+        aligningVoronoi
+        aligningVoronoi_modified
+        vicsekAligningVoronoi
+        cpp_sim_animatorVertex
+        cpp_sim_animatorVoronoi
+        ActivePolarNematicVertex
         )
 add_executable("${ARG}.out" "${ARG}.cpp" )
 target_link_libraries("${ARG}.out"
     ${myLibs}
+    ${OpenCV_LIBS}
     CGAL::CGAL
     OpenMP::OpenMP_CXX
     )
 endforeach()
+

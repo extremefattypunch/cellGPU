@@ -102,7 +102,7 @@ int main(int argc, char*argv[])
     //combine the equation of motion and the cell configuration in a "Simulation"
     SimulationPtr sim = make_shared<Simulation>();
     sim->setConfiguration(avm);
-    sim->addUpdater(bd,avm);
+    sim->addUpdater(spp,avm);
     //one could have written "sim->addUpdater(spp,avm);" to use the active cell dynamics instead
 
     //set the time step size

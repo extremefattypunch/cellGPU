@@ -338,6 +338,7 @@ HOSTDEVICE void computeForceSetVertexModel(const double2 &vcur, const double2 &v
                                    const double &Adiff, const double &Pdiff,
                                    double2 &dEdv)
     {
+    const double EPS = 1e-10;
     double2 dlast,dnext,dAdv,dPdv;
 
     //note that my conventions for dAdv and dPdv take care of the minus sign, so
@@ -350,8 +351,19 @@ HOSTDEVICE void computeForceSetVertexModel(const double2 &vcur, const double2 &v
     dnext.x = vcur.x-vnext.x;
     dnext.y = vcur.y-vnext.y;
     double dnnorm = sqrt(dnext.x*dnext.x+dnext.y*dnext.y);
-    dPdv.x = dlast.x/dlnorm - dnext.x/dnnorm;
-    dPdv.y = dlast.y/dlnorm - dnext.y/dnnorm;
+
+    dPdv.x = 0.0;
+    dPdv.y = 0.0;
+    if (dlnorm > EPS)
+    {
+        dPdv.x += dlast.x / dlnorm;
+        dPdv.y += dlast.y / dlnorm;
+    }
+    if (dnnorm > EPS)
+    {
+        dPdv.x -= dnext.x / dnnorm;
+        dPdv.y -= dnext.y / dnnorm;
+    }
 
     //compute the area of the triangle to know if it is positive (convex cell) or not
 //    double TriAreaTimes2 = -vnext.x*vlast.y+vcur.y*(vnext.x-vlast.x)+vcur.x*(vlast.y-vnext.x)+vlast.x+vnext.y;

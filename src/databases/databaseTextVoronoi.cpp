@@ -30,20 +30,33 @@ void DatabaseTextVoronoi::writeState(STATE s, double time, int rec)
         };
         
     int N = s->getNumberOfDegreesOfFreedom();
-//    printf("saving %i cells\n",N);
     if (time < 0) time = s->currentTime;
-    double x11,x12,x21,x22;
-    s->returnBox().getBoxDims(x11,x12,x21,x22);
 
-    outputFile << "N, time, box:\n";
-    outputFile << N << "\t" << time <<"\t" <<x11 <<"\t" <<x12<<"\t" <<x21<<"\t" <<x22 <<"\n";
+    // Ensure geometry is computed to populate voroCur
+    s->computeGeometry();
+
+    outputFile << "t=" << time << "\n";
 
     ArrayHandle<double2> h_pos(s->cellPositions,access_location::host,access_mode::read);
-    ArrayHandle<int> h_ct(s->cellType,access_location::host,access_mode::read);
+    ArrayHandle<int> h_nn(s->neighborNum,access_location::host,access_mode::read);
+    ArrayHandle<double2> h_voro(s->getVoroCur(),access_location::host,access_mode::read);
+
     for (int ii = 0; ii < N; ++ii)
         {
         int pidx = s->tagToIdx[ii];
-        outputFile <<h_pos.data[pidx].x <<"\t"<<h_pos.data[pidx].y <<"\t" <<h_ct.data[pidx] <<"\n";
+        double2 cellpos = h_pos.data[pidx];
+        outputFile << "cell=" << cellpos.x << "," << cellpos.y << ",vertices=[";
+        int neighs = h_nn.data[pidx];
+        for (int nn = 0; nn < neighs; ++nn)
+            {
+            double2 vrel = h_voro.data[s->getNIdx()(nn, pidx)];
+            double2 vabs;
+            vabs.x = vrel.x + cellpos.x;
+            vabs.y = vrel.y + cellpos.y;
+            if (nn > 0) outputFile << ",";
+            outputFile << vabs.x << "," << vabs.y;
+            }
+        outputFile << "]\n";
         };
     };
 

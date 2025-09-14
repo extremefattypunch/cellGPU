@@ -14,7 +14,7 @@ and the shape index parameter for each vertex
 class simpleVertexDatabase : public baseHDF5Database
 {
 public:
-    simpleVertexDatabase(int np, string fn="temp.nc",fileMode::Enum _mode=fileMode::readonly);
+    simpleVertexDatabase(int np, string fn="temp.h5",fileMode::Enum _mode=fileMode::readonly);
 
 public:
 

@@ -30,7 +30,8 @@ bool gpu_spp_vicsek_aligning_eom_integration(
                     double deltaT,
                     int Timestep,
                     double mu,
-                    double Eta);
+                    double Eta,
+                    double tau);
 
 /** @} */ //end of group declaration
  #endif

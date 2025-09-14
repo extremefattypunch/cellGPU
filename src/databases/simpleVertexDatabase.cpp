@@ -40,8 +40,8 @@ void simpleVertexDatabase::registerDatasets()
     registerExtendableDataset<double>("vertexPosition", 2*N);
 
     registerExtendableDataset<double>("cellPosition", 2*Nc);
-    registerExtendableDataset<double>("vertexVertexNeighbors", 3*N);
-    registerExtendableDataset<double>("vertexCellNeighbors", 3*N);
+    registerExtendableDataset<int>("vertexVertexNeighbors", 3*N);
+    registerExtendableDataset<int>("vertexCellNeighbors", 3*N);
     // registerExtendableDataset<double>("additionalData", 2*N);
     }
 
@@ -105,7 +105,7 @@ void simpleVertexDatabase::writeState(STATE c, double time, int rec)
         for (int ii = 0 ;ii < 3; ++ii)
             {
             vertexNeighborVector[3*vv+ii] = s->idxToTagVertex[h_vn.data[3*vertexIndex+ii]];
-            vertexCellNeighborVector[3*vv+ii] = s->idxToTagVertex[h_vcn.data[3*vertexIndex+ii]];
+            vertexCellNeighborVector[3*vv+ii] = s->idxToTag[h_vcn.data[3*vertexIndex+ii]];
             };
         };
     extendDataset("vertexVertexNeighbors",vertexNeighborVector);
@@ -118,37 +118,81 @@ void simpleVertexDatabase::readState(STATE c, int rec, bool geometry)
     shared_ptr<vertexModelBase> t = dynamic_pointer_cast<vertexModelBase>(c);
 
     readDataset("time",timeVector,rec);
+    t->currentTime = timeVector[0];
 
     readDataset("boxMatrix",boxVector,rec);
     t->Box->setGeneral(boxVector[0],boxVector[1],boxVector[2],boxVector[3]);
 
-    readDataset("type",intVector,rec);
+    readDataset("cellType",intVector,rec);
     ArrayHandle<int> h_ct(t->cellType,access_location::host,access_mode::overwrite);
-    for (int idx = 0; idx < N; ++idx)
+    for (int idx = 0; idx < Nc; ++idx)
         {
-        h_ct.data[idx]=intVector[idx];;
+        h_ct.data[idx]=intVector[idx];
         };
 
-    readDataset("position",coordinateVector,rec);
-    ArrayHandle<double2> h_p(t->cellPositions,access_location::host,access_mode::overwrite);
+    readDataset("vertexPosition",coordinateVector,rec);
+    ArrayHandle<double2> h_p(t->returnPositions(),access_location::host,access_mode::overwrite);
     for (int idx = 0; idx < N; ++idx)
         {
-        h_p.data[idx].x = coordinateVector[(2*idx)];
-        h_p.data[idx].y = coordinateVector[(2*idx)+1];
+        h_p.data[idx].x = coordinateVector[2*idx];
+        h_p.data[idx].y = coordinateVector[2*idx+1];
         };
 
-    readDataset("velocity",coordinateVector,rec);
+    readDataset("cellPosition",cellCoordinateVector,rec);
+    ArrayHandle<double2> h_cp(t->cellPositions,access_location::host,access_mode::overwrite);
+    for (int idx = 0; idx < Nc; ++idx)
+        {
+        h_cp.data[idx].x = cellCoordinateVector[2*idx];
+        h_cp.data[idx].y = cellCoordinateVector[2*idx+1];
+        };
+
+    // Set velocities to zero since not stored
     ArrayHandle<double2> h_v(t->returnVelocities(),access_location::host,access_mode::overwrite);
     for (int idx = 0; idx < N; ++idx)
         {
-        h_v.data[idx].x = coordinateVector[(2*idx)];
-        h_v.data[idx].y = coordinateVector[(2*idx)+1];
+        h_v.data[idx] = make_double2(0.0, 0.0);
         };
 
-    ERRORERROR("vertexModel reading currently not functional");
+    readDataset("vertexVertexNeighbors",vertexNeighborVector,rec);
+    ArrayHandle<int> h_vn(t->vertexNeighbors,access_location::host,access_mode::overwrite);
+    for (int vv = 0; vv < N; ++vv)
+        {
+        for (int ii = 0; ii < 3; ++ii)
+            {
+            h_vn.data[3*vv + ii] = vertexNeighborVector[3*vv + ii];
+            };
+        };
+
+    readDataset("vertexCellNeighbors",vertexCellNeighborVector,rec);
+    ArrayHandle<int> h_vcn(t->vertexCellNeighbors,access_location::host,access_mode::overwrite);
+    for (int vv = 0; vv < N; ++vv)
+        {
+        for (int ii = 0; ii < 3; ++ii)
+            {
+            h_vcn.data[3*vv + ii] = vertexCellNeighborVector[3*vv + ii];
+            };
+        };
+
+    // Assume tags are ordered 0 to Nc-1 for cells and 0 to N-1 for vertices
+    t->idxToTag.resize(Nc);
+    t->tagToIdx.resize(Nc);
+    for (int i = 0; i < Nc; ++i)
+        {
+        t->idxToTag[i] = i;
+        t->tagToIdx[i] = i;
+        };
+    t->idxToTagVertex.resize(N);
+    t->tagToIdxVertex.resize(N);
+    for (int i = 0; i < N; ++i)
+        {
+        t->idxToTagVertex[i] = i;
+        t->tagToIdxVertex[i] = i;
+        };
+
     //by default, compute the triangulation and geometrical information
     if(geometry)
         {
+        t->computeGeometry();
         };
     }
 

@@ -162,7 +162,9 @@ class Simple2DCell : public Simple2DModel
         int Ncells;
         //!Number of vertices
         int Nvertices;
-
+      
+        virtual int getNvertices(){return Nvertices;};
+        virtual int getNcells(){return Ncells;};
         //! Cell positions... not used for computation, but can track, e.g., MSD of cell centers
         GPUArray<double2> cellPositions;
         //! Position of the vertices
@@ -389,6 +391,12 @@ class Simple2DCell : public Simple2DModel
         // virtual functions for interfacing with a Simulation
         virtual void setCPU(bool a) = 0;
         virtual void setv0Dr(double a, double b) = 0;
+        //! Public getter for voroCur and cellVertices
+        GPUArray<double2>& getVoroCur() { return voroCur; }
+        GPUArray<int>& getcellVertices() { return cellVertices; }
+
+        //! Public getter for n_idx
+        const Index2D& getNIdx() const { return n_idx; }
     };
 
 typedef shared_ptr<Simple2DCell> ForcePtr;
